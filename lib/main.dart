@@ -80,7 +80,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   ];
   Future<void> loadExpenses() async {
     final data = await DatabaseHelper.instance.getAllExpenses();
-
+    for (final expense in data) {
+      debugPrint(expense.expenseDate);
+    }
     setState(() {
       expenses = data;
     });
@@ -888,12 +890,18 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
               ),
               ElevatedButton.icon(
                 onPressed: () async {
+                  final monthlyExpenses = expenses.where((expense) {
+                    return expense.expenseDate.substring(0, 7) == selectedMonth;
+                  }).toList();
+                  debugPrint("Selected Month: $selectedMonth");
                   await PdfService().previewPdf(
                     month: selectedMonth,
                     income: monthlyIncome,
                     budget: monthlyBudget,
                     expenses: totalExpenses,
                     savings: savings,
+                    categoryTotals: categoryTotals,
+                    expenseList: monthlyExpenses,
                   );
                 },
                 icon: const Icon(Icons.picture_as_pdf),
