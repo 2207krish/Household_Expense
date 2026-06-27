@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'widgets/summary_card.dart';
 import 'widgets/pie_chart.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'services/pdf_service.dart';
 
 void main() {
   runApp(const ExpenseTrackerApp());
@@ -35,9 +38,11 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   final TextEditingController itemController = TextEditingController();
   final TextEditingController amountController = TextEditingController();
   final TextEditingController incomeController = TextEditingController();
+  final TextEditingController budgetController = TextEditingController();
   Map<String, double> categoryTotals = {};
   double monthlyIncome = 0;
   double totalExpenses = 0;
+  double monthlyBudget = 0;
   double savings = 0;
   String selectedMonth =
       "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}";
@@ -58,6 +63,20 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     'Credit Card',
     'Debit Card',
     'Net Banking',
+  ];
+  final List<Color> barColors = [
+    Color(0xFF64B5F6), // Blue
+    Color(0xFF81C784), // Green
+    Color(0xFFFFD54F), // Amber
+    Color(0xFF9575CD), // Purple
+    Color(0xFFF06292), // Pink
+    Color(0xFF4DD0E1), // Cyan
+    Color(0xFFFFB74D), // Orange
+    Color(0xFFA1887F), // Brown
+    Color(0xFF90CAF9),
+    Color(0xFFA5D6A7),
+    Color(0xFFCE93D8),
+    Color(0xFFFFAB91),
   ];
   Future<void> loadExpenses() async {
     final data = await DatabaseHelper.instance.getAllExpenses();
@@ -149,6 +168,28 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   }
 
   Widget buildMonthlyTrendGraph() {
+    List<BarChartGroupData> bars = [];
+
+    int index = 0;
+
+    monthlyExpenseTotals.forEach((month, amount) {
+      bars.add(
+        BarChartGroupData(
+          x: index,
+
+          barRods: [
+            BarChartRodData(
+              toY: amount,
+              width: 22,
+              color: barColors[index % barColors.length],
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ],
+        ),
+      );
+
+      index++;
+    });
     if (monthlyExpenseTotals.isEmpty) {
       return const Card(
         child: Padding(
@@ -188,16 +229,104 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
             SizedBox(
               height: 250,
-              child: LineChart(
-                LineChartData(
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: getMonthlySpots(),
-                      isCurved: true,
-                      barWidth: 4,
-                      dotData: const FlDotData(show: true),
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  groupsSpace: 16,
+                  maxY: monthlyExpenseTotals.values.reduce(max) * 1.2,
+
+                  barGroups: bars,
+
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    horizontalInterval: 1000,
+                  ),
+
+                  borderData: FlBorderData(show: false),
+
+                  titlesData: FlTitlesData(
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
                     ),
-                  ],
+
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+
+                    leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                      ),
+                    ),
+
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          if (value.toInt() >= monthlyExpenseTotals.length) {
+                            return const SizedBox();
+                          }
+
+                          final month = monthlyExpenseTotals.keys.elementAt(
+                            value.toInt(),
+                          );
+
+                          final monthName = [
+                            "",
+                            "Jan",
+                            "Feb",
+                            "Mar",
+                            "Apr",
+                            "May",
+                            "Jun",
+                            "Jul",
+                            "Aug",
+                            "Sep",
+                            "Oct",
+                            "Nov",
+                            "Dec",
+                          ];
+
+                          final monthNo = int.parse(month.split("-")[1]);
+
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              monthName[monthNo],
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  barTouchData: BarTouchData(
+                    enabled: true,
+                    touchTooltipData: BarTouchTooltipData(
+                      tooltipRoundedRadius: 12,
+                      tooltipPadding: const EdgeInsets.all(8),
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        final month = monthlyExpenseTotals.keys.elementAt(
+                          group.x,
+                        );
+                        final amount = rod.toY;
+
+                        return BarTooltipItem(
+                          '$month\n₹ ${amount.toStringAsFixed(0)}',
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -233,6 +362,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     loadExpenses().then((_) async {
       await calculateSummary();
       await loadMonthlyExpenseTotals();
+      await loadBudget();
     });
   }
 
@@ -480,6 +610,28 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     }
   }
 
+  Future<void> saveBudget() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    monthlyBudget = double.tryParse(budgetController.text) ?? 0;
+
+    await prefs.setDouble('budget_$selectedMonth', monthlyBudget);
+
+    setState(() {});
+  }
+
+  Future<void> loadBudget() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    monthlyBudget = prefs.getDouble('budget_$selectedMonth') ?? 0;
+
+    budgetController.text = monthlyBudget == 0
+        ? ''
+        : monthlyBudget.toStringAsFixed(0);
+
+    setState(() {});
+  }
+
   String getSelectedMonthLabel() {
     final month = months.firstWhere(
       (m) => m['value'] == selectedMonth,
@@ -571,6 +723,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
                   updateDefaultDate();
 
+                  await loadBudget();
+
                   await calculateSummary();
 
                   setState(() {});
@@ -578,38 +732,272 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
               ),
 
               const SizedBox(height: 20),
+              Card(
+                elevation: 5,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.account_balance_wallet,
+                            color: Colors.green,
+                          ),
+
+                          SizedBox(width: 10),
+
+                          Text(
+                            'Monthly Income',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      TextField(
+                        controller: incomeController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Income for $selectedMonth',
+                          border: const OutlineInputBorder(),
+                          prefixText: '₹ ',
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: saveIncome,
+                          icon: const Icon(Icons.save),
+                          label: const Text("Save Income"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Card(
+                elevation: 5,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.account_balance, color: Colors.orange),
+
+                          SizedBox(width: 10),
+
+                          Text(
+                            'Monthly Budget',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      TextField(
+                        controller: budgetController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Budget for $selectedMonth',
+                          prefixText: '₹ ',
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: saveBudget,
+                          icon: const Icon(Icons.save),
+                          label: const Text("Save Budget"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
               const SizedBox(height: 20),
-
-              Column(
+              const SizedBox(height: 20),
+              Row(
                 children: [
-                  SummaryCard(
-                    title: 'Income',
-                    value: '₹ ${monthlyIncome.toStringAsFixed(0)}',
-                    color: Colors.green,
-                    icon: Icons.account_balance_wallet,
+                  Expanded(
+                    child: SummaryCard(
+                      title: 'Income',
+                      value: '₹ ${monthlyIncome.toStringAsFixed(0)}',
+                      color: Colors.green,
+                      icon: Icons.account_balance_wallet,
+                    ),
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(width: 10),
 
-                  SummaryCard(
-                    title: 'Expenses',
-                    value: '₹ ${totalExpenses.toStringAsFixed(0)}',
-                    color: Colors.red,
-                    icon: Icons.shopping_cart,
+                  Expanded(
+                    child: SummaryCard(
+                      title: 'Expense',
+                      value: '₹ ${totalExpenses.toStringAsFixed(0)}',
+                      color: Colors.red,
+                      icon: Icons.shopping_cart,
+                    ),
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(width: 10),
 
-                  SummaryCard(
-                    title: 'Savings',
-                    value: '₹ ${savings.toStringAsFixed(0)}',
-                    color: Colors.blue,
-                    icon: Icons.savings,
+                  Expanded(
+                    child: SummaryCard(
+                      title: 'Savings',
+                      value: '₹ ${savings.toStringAsFixed(0)}',
+                      color: Colors.blue,
+                      icon: Icons.savings,
+                    ),
                   ),
                 ],
               ),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await PdfService().previewPdf(
+                    month: selectedMonth,
+                    income: monthlyIncome,
+                    budget: monthlyBudget,
+                    expenses: totalExpenses,
+                    savings: savings,
+                  );
+                },
+                icon: const Icon(Icons.picture_as_pdf),
+                label: const Text("Export PDF"),
+              ),
+              Card(
+                elevation: 5,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.track_changes, color: Colors.deepOrange),
+                          SizedBox(width: 10),
+                          Text(
+                            "Budget vs Actual",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
 
+                      const SizedBox(height: 25),
+
+                      LinearProgressIndicator(
+                        value: monthlyBudget == 0
+                            ? 0
+                            : totalExpenses / monthlyBudget,
+                        minHeight: 14,
+                        borderRadius: BorderRadius.circular(12),
+                        backgroundColor: Colors.grey.shade300,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          totalExpenses <= monthlyBudget
+                              ? Colors.green
+                              : Colors.red,
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Spent",
+                            style: TextStyle(color: Colors.grey.shade700),
+                          ),
+
+                          Text(
+                            "₹ ${totalExpenses.toStringAsFixed(0)}",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Budget",
+                            style: TextStyle(color: Colors.grey.shade700),
+                          ),
+
+                          Text(
+                            "₹ ${monthlyBudget.toStringAsFixed(0)}",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Remaining",
+                            style: TextStyle(color: Colors.grey.shade700),
+                          ),
+
+                          Text(
+                            "₹ ${(monthlyBudget - totalExpenses).toStringAsFixed(0)}",
+                            style: TextStyle(
+                              color: monthlyBudget >= totalExpenses
+                                  ? Colors.green
+                                  : Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const Divider(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -740,7 +1128,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
+              buildMonthlyTrendGraph(),
               const SizedBox(height: 25),
 
               Card(
@@ -805,7 +1193,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                       ),
 
                       const SizedBox(height: 20),
-                      buildMonthlyTrendGraph(),
+
                       // Keep your existing Category Summary ListView here
                       ListView.builder(
                         shrinkWrap: true,
