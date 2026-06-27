@@ -7,6 +7,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/pdf_service.dart';
+import 'package:household_expense/widgets/dashboard_header.dart';
+import 'widgets/quick_statistics_card.dart';
 
 void main() {
   runApp(const ExpenseTrackerApp());
@@ -80,14 +82,14 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   ];
   Future<void> loadExpenses() async {
     final data = await DatabaseHelper.instance.getAllExpenses();
-    for (final expense in data) {
-      debugPrint(expense.expenseDate);
-    }
-    setState(() {
-      expenses = data;
-    });
+
+    expenses = data;
 
     await calculateSummary();
+
+    if (!mounted) return;
+
+    setState(() {});
   }
 
   Future<void> loadCategories() async {
@@ -118,18 +120,14 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
   Future<void> calculateSummary() async {
     double total = 0;
-
     Map<String, double> totals = {};
 
     for (var expense in expenses) {
       final expenseMonth = expense.expenseDate.substring(0, 7);
 
-      if (expenseMonth != selectedMonth) {
-        continue;
-      }
+      if (expenseMonth != selectedMonth) continue;
 
       total += expense.amount;
-
       totals[expense.category] =
           (totals[expense.category] ?? 0) + expense.amount;
     }
@@ -138,11 +136,39 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       selectedMonth,
     );
 
-    setState(() {
-      totalExpenses = total;
-      savings = monthlyIncome - totalExpenses;
-      categoryTotals = totals;
-    });
+    totalExpenses = total;
+    savings = monthlyIncome - totalExpenses;
+    categoryTotals = totals;
+  }
+
+  String getHighestCategory() {
+    if (categoryTotals.isEmpty) return "-";
+
+    return categoryTotals.entries
+        .reduce((a, b) => a.value > b.value ? a : b)
+        .key;
+  }
+
+  double getLargestExpense() {
+    final monthlyExpenses = expenses.where(
+      (e) => e.expenseDate.substring(0, 7) == selectedMonth,
+    );
+
+    if (monthlyExpenses.isEmpty) return 0;
+
+    return monthlyExpenses.map((e) => e.amount).reduce((a, b) => a > b ? a : b);
+  }
+
+  int getTransactionCount() {
+    return expenses
+        .where((e) => e.expenseDate.substring(0, 7) == selectedMonth)
+        .length;
+  }
+
+  double getBudgetUsed() {
+    if (monthlyBudget == 0) return 0;
+
+    return (totalExpenses / monthlyBudget) * 100;
   }
 
   Future<void> loadMonthlyExpenseTotals() async {
@@ -532,6 +558,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
     await calculateSummary();
 
+    if (!mounted) return;
+
     setState(() {});
 
     if (!mounted) return;
@@ -619,6 +647,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
     await prefs.setDouble('budget_$selectedMonth', monthlyBudget);
 
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -630,8 +659,6 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     budgetController.text = monthlyBudget == 0
         ? ''
         : monthlyBudget.toStringAsFixed(0);
-
-    setState(() {});
   }
 
   String getSelectedMonthLabel() {
@@ -662,51 +689,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              Column(
-                children: [
-                  const Icon(
-                    Icons.account_balance_wallet,
-                    size: 55,
-                    color: Colors.green,
-                  ),
+              DashboardHeader(month: getSelectedMonthLabel()),
 
-                  const SizedBox(height: 10),
-
-                  const Text(
-                    'Household Expense Tracker',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                  ),
-
-                  const SizedBox(height: 5),
-
-                  const Text(
-                    'Manage your household expenses efficiently',
-                    style: TextStyle(color: Colors.grey, fontSize: 15),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Text(
-                      "📅 ${getSelectedMonthLabel()}",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 20),
-              const SizedBox(height: 15),
 
               DropdownButtonFormField<String>(
                 initialValue: selectedMonth,
@@ -728,6 +713,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   await loadBudget();
 
                   await calculateSummary();
+
+                  if (!mounted) return;
 
                   setState(() {});
                 },
@@ -854,40 +841,59 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
               const SizedBox(height: 20),
               const SizedBox(height: 20),
-              Row(
+
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
                 children: [
-                  Expanded(
-                    child: SummaryCard(
-                      title: 'Income',
-                      value: '₹ ${monthlyIncome.toStringAsFixed(0)}',
-                      color: Colors.green,
-                      icon: Icons.account_balance_wallet,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SummaryCard(
+                          title: "Income",
+                          value: "₹ ${monthlyIncome.toStringAsFixed(0)}",
+                          subtitle: "Monthly Income",
+                          color: Colors.green,
+                          icon: Icons.account_balance_wallet,
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: SummaryCard(
+                          title: "Expenses",
+                          value: "₹ ${totalExpenses.toStringAsFixed(0)}",
+                          subtitle: "Spent this month",
+                          color: Colors.red,
+                          icon: Icons.shopping_cart,
+                        ),
+                      ),
+                    ],
                   ),
 
-                  const SizedBox(width: 10),
+                  const SizedBox(height: 12),
 
-                  Expanded(
-                    child: SummaryCard(
-                      title: 'Expense',
-                      value: '₹ ${totalExpenses.toStringAsFixed(0)}',
-                      color: Colors.red,
-                      icon: Icons.shopping_cart,
-                    ),
-                  ),
-
-                  const SizedBox(width: 10),
-
-                  Expanded(
-                    child: SummaryCard(
-                      title: 'Savings',
-                      value: '₹ ${savings.toStringAsFixed(0)}',
-                      color: Colors.blue,
-                      icon: Icons.savings,
-                    ),
+                  SummaryCard(
+                    title: "Savings",
+                    value: "₹ ${savings.toStringAsFixed(0)}",
+                    subtitle: savings >= 0 ? "✓ Healthy" : "⚠ Overspent",
+                    color: Colors.blue,
+                    icon: Icons.savings,
                   ),
                 ],
               ),
+              const SizedBox(height: 20),
+
+              QuickStatisticsCard(
+                highestCategory: getHighestCategory(),
+                highestExpense: getLargestExpense(),
+                transactionCount: getTransactionCount(),
+                budgetUsed: getBudgetUsed(),
+              ),
+
+              const SizedBox(height: 20),
+
               ElevatedButton.icon(
                 onPressed: () async {
                   final monthlyExpenses = expenses.where((expense) {

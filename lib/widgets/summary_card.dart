@@ -5,6 +5,7 @@ class SummaryCard extends StatelessWidget {
   final String value;
   final Color color;
   final IconData icon;
+  final String subtitle;
 
   const SummaryCard({
     super.key,
@@ -12,51 +13,67 @@ class SummaryCard extends StatelessWidget {
     required this.value,
     required this.color,
     required this.icon,
+    required this.subtitle,
   });
 
   @override
-  @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Container(
-        height: 140,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(18),
+    return Container(
+      height: 170,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.95),
+            color.withValues(alpha: 0.65),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.30),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
-              radius: 20,
-              backgroundColor: color,
-              child: Icon(icon, color: Colors.white, size: 20),
+              radius: 18,
+              backgroundColor: Colors.white24,
+              child: Icon(icon, color: Colors.white),
             ),
 
-            const SizedBox(height: 10),
+            const Spacer(),
 
             Text(
               title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(color: Colors.white70, fontSize: 15),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
             Text(
               value,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                color: color,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
