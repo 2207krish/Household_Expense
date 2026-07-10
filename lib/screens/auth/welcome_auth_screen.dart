@@ -40,8 +40,8 @@ class _WelcomeAuthScreenState extends State<WelcomeAuthScreen> {
 
   Future<void> _loadState() async {
     final enrolled = await DeviceEnrollmentService.instance.isEnrolled();
-    final canSignIn = await AuthService.instance.hasUnlockCredential() ||
-        await AuthService.instance.hasProfile();
+    final canSignIn = await AuthService.instance.hasAccount() ||
+        await AuthService.instance.hasUnlockCredential();
     if (!mounted) return;
     setState(() {
       _deviceEnrolled = enrolled;

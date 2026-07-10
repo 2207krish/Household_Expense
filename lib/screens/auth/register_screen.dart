@@ -58,7 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Only hard-block when a local profile already exists.
     // Enrolled devices with no profile must still open this form so the
     // original owner can re-create with the same email + mobile number.
-    final hasProfile = await AuthService.instance.hasProfile();
+    final hasProfile = await AuthService.instance.hasAccount();
     if (!mounted) return;
 
     if (hasProfile) {

@@ -7,7 +7,6 @@ import '../../theme/app_theme.dart';
 import '../../widgets/ui/app_logo.dart';
 import '../../widgets/ui/mesh_background.dart';
 import 'login_screen.dart';
-import 'register_screen.dart';
 import 'welcome_auth_screen.dart';
 
 class AuthGate extends StatefulWidget {
@@ -21,8 +20,7 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   bool _loading = true;
-  bool _hasProfile = false;
-  bool _canUnlock = false;
+  bool _hasAccount = false;
   bool _isLoggedIn = false;
 
   @override
@@ -40,14 +38,11 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Lock when the app goes to background — but not during native file
-    // pickers / system sheets (import, restore, email), which also pause the app.
     if (_isBackgroundLifecycleState(state) &&
         _isLoggedIn &&
         !AuthService.instance.isBackgroundLockSuppressed) {
       AuthService.instance.endSession();
       if (mounted) {
-        // Drop pushed routes so a lock does not strand screens above LoginScreen.
         Navigator.of(context).popUntil((route) => route.isFirst);
         setState(() => _isLoggedIn = false);
       }
@@ -66,14 +61,12 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
       await AuthService.instance.prepareForLaunch();
     }
     await EntitlementService.instance.migrateDeviceEnrollmentIfNeeded();
-    final hasProfile = await AuthService.instance.hasProfile();
-    final canUnlock = hasProfile ||
-        await AuthService.instance.hasUnlockCredential();
+    // Open DB and migrate legacy prefs → app_user before routing.
+    final hasAccount = await AuthService.instance.hasAccount();
     final loggedIn = await AuthService.instance.isLoggedIn();
     if (!mounted) return;
     setState(() {
-      _hasProfile = hasProfile;
-      _canUnlock = canUnlock;
+      _hasAccount = hasAccount;
       _isLoggedIn = loggedIn;
       _loading = false;
     });
@@ -81,15 +74,11 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
   Future<void> _onUnlocked() async {
     if (!mounted) return;
-    // Re-read flags — profile may exist even when Sign in was opened from Welcome.
-    final hasProfile = await AuthService.instance.hasProfile();
-    final canUnlock = hasProfile ||
-        await AuthService.instance.hasUnlockCredential();
+    final hasAccount = await AuthService.instance.hasAccount();
     final loggedIn = await AuthService.instance.isLoggedIn();
     if (!mounted) return;
     setState(() {
-      _hasProfile = hasProfile;
-      _canUnlock = canUnlock;
+      _hasAccount = hasAccount;
       _isLoggedIn = loggedIn;
     });
   }
@@ -100,25 +89,16 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
       return const _AuthSplash();
     }
 
-    // Unlocked session with a profile → main app.
-    if (_isLoggedIn && _hasProfile) {
+    if (_isLoggedIn && _hasAccount) {
       return widget.authenticatedBuilder(context);
     }
 
-    // Unlocked but profile missing (e.g. reinstall kept Keychain PIN) → finish setup.
-    // RegisterScreen allows same-identity re-create when enrollment exists.
-    if (_isLoggedIn && !_hasProfile) {
-      return RegisterScreen(
-        onCompleted: () => _refresh(lockSession: false),
-      );
-    }
-
-    // Profile or surviving PIN/password → unlock (not welcome / create-account).
-    if (_hasProfile || _canUnlock) {
+    // Database already has this household account → sign in with email + PIN.
+    if (_hasAccount) {
       return LoginScreen(onSuccess: _onUnlocked);
     }
 
-    // No profile and no unlock credential → welcome / first-time setup.
+    // No account in the database → welcome / create account.
     return WelcomeAuthScreen(
       onRegistered: () => _refresh(lockSession: false),
       onSignedIn: _onUnlocked,
