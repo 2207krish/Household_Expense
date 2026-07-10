@@ -22,6 +22,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   bool _loading = true;
   bool _hasProfile = false;
+  bool _canUnlock = false;
   bool _isLoggedIn = false;
 
   @override
@@ -66,10 +67,13 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     }
     await EntitlementService.instance.migrateDeviceEnrollmentIfNeeded();
     final hasProfile = await AuthService.instance.hasProfile();
+    final canUnlock = hasProfile ||
+        await AuthService.instance.hasUnlockCredential();
     final loggedIn = await AuthService.instance.isLoggedIn();
     if (!mounted) return;
     setState(() {
       _hasProfile = hasProfile;
+      _canUnlock = canUnlock;
       _isLoggedIn = loggedIn;
       _loading = false;
     });
@@ -77,12 +81,15 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
   Future<void> _onUnlocked() async {
     if (!mounted) return;
-    // Re-read both flags — profile may exist even when Sign in was opened from Welcome.
+    // Re-read flags — profile may exist even when Sign in was opened from Welcome.
     final hasProfile = await AuthService.instance.hasProfile();
+    final canUnlock = hasProfile ||
+        await AuthService.instance.hasUnlockCredential();
     final loggedIn = await AuthService.instance.isLoggedIn();
     if (!mounted) return;
     setState(() {
       _hasProfile = hasProfile;
+      _canUnlock = canUnlock;
       _isLoggedIn = loggedIn;
     });
   }
@@ -99,18 +106,19 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     }
 
     // Unlocked but profile missing (e.g. reinstall kept Keychain PIN) → finish setup.
+    // RegisterScreen allows same-identity re-create when enrollment exists.
     if (_isLoggedIn && !_hasProfile) {
       return RegisterScreen(
         onCompleted: () => _refresh(lockSession: false),
       );
     }
 
-    // Profile exists → unlock with PIN/password.
-    if (_hasProfile) {
+    // Profile or surviving PIN/password → unlock (not welcome / create-account).
+    if (_hasProfile || _canUnlock) {
       return LoginScreen(onSuccess: _onUnlocked);
     }
 
-    // No profile yet (first install or wiped prefs) → welcome / re-create / sign in.
+    // No profile and no unlock credential → welcome / first-time setup.
     return WelcomeAuthScreen(
       onRegistered: () => _refresh(lockSession: false),
       onSignedIn: _onUnlocked,

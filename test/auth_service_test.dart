@@ -114,6 +114,21 @@ void main() {
       );
       expect(check.allowed, isTrue);
     });
+
+    test('blocks enrollment probe without identity when no profile', () async {
+      // Used by UI only after confirming a local profile exists.
+      // Without email/phone, enrollment alone is treated as blocked.
+      await DeviceEnrollmentService.instance.record(
+        email: 'owner@example.com',
+        phone: '9876543210',
+        region: AppRegion.india,
+        registrationDate: DateTime(2025, 1, 1),
+      );
+
+      final check = await AuthService.instance.checkRegistrationAllowed();
+      expect(check.allowed, isFalse);
+      expect(check.reason, RegistrationBlockReason.deviceAlreadyRegistered);
+    });
   });
 
   group('AuthService identity recovery', () {
