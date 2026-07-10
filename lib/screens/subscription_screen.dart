@@ -7,6 +7,7 @@ import '../services/subscription_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui/glass_surface.dart';
 import '../widgets/ui/app_scaffold.dart';
+import '../widgets/ui/app_logo.dart';
 
 /// Plan selection and purchase screen.
 class SubscriptionScreen extends StatefulWidget {
@@ -103,6 +104,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
+            const Center(child: AppLogo(size: 96)),
+            const SizedBox(height: 16),
             if (!_status.canUseApp)
               GlassSurface.card(
                 padding: const EdgeInsets.all(16),

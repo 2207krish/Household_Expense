@@ -9,7 +9,7 @@ import '../../services/biometric_auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/auth_validators.dart';
 import '../../utils/test_registration.dart';
-import '../../widgets/ui/login_hero_illustration.dart';
+import '../../widgets/ui/app_logo.dart';
 import '../../widgets/ui/glass_surface.dart';
 import '../../widgets/ui/mesh_background.dart';
 import 'forgot_credentials_screen.dart';
@@ -212,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                    const LoginHeroIllustration(size: 196)
+                    const AppLogo(size: 168)
                         .animate()
                         .fadeIn(duration: 500.ms, curve: Curves.easeOut)
                         .scale(

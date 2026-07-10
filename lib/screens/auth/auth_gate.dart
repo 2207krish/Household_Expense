@@ -4,10 +4,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../services/auth_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/ui/finance_illustration.dart';
+import '../../widgets/ui/app_logo.dart';
 import '../../widgets/ui/mesh_background.dart';
 import 'login_screen.dart';
-import 'register_screen.dart';
 import 'welcome_auth_screen.dart';
 
 class AuthGate extends StatefulWidget {
@@ -113,10 +112,9 @@ class _AuthSplash extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const FinanceIllustration(
-                type: FinanceIllustrationType.wallet,
-                size: 88,
-              ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
+              const AppLogo(size: 112)
+                  .animate()
+                  .scale(duration: 500.ms, curve: Curves.easeOutBack),
               const SizedBox(height: 24),
               Text(
                 'Household Expense',

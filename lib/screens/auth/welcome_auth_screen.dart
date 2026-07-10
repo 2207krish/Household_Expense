@@ -5,7 +5,7 @@ import '../../config/subscription_config.dart';
 import '../../services/auth_service.dart';
 import '../../services/device_enrollment_service.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/ui/finance_illustration.dart';
+import '../../widgets/ui/app_logo.dart';
 import '../../widgets/ui/glass_surface.dart';
 import '../../widgets/ui/mesh_background.dart';
 import 'register_screen.dart';
@@ -75,10 +75,9 @@ class _WelcomeAuthScreenState extends State<WelcomeAuthScreen> {
                 constraints: const BoxConstraints(maxWidth: 440),
                 child: Column(
                   children: [
-                    const FinanceIllustration(
-                      type: FinanceIllustrationType.wallet,
-                      size: 88,
-                    ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
+                    const AppLogo(size: 112)
+                        .animate()
+                        .scale(duration: 500.ms, curve: Curves.easeOutBack),
                     const SizedBox(height: 24),
                     Text(
                       'Household Expense',

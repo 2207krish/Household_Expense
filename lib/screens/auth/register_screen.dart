@@ -10,7 +10,7 @@ import '../../services/app_locale_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/auth_validators.dart';
-import '../../widgets/ui/finance_illustration.dart';
+import '../../widgets/ui/app_logo.dart';
 import '../../widgets/ui/glass_surface.dart';
 import '../../widgets/ui/mesh_background.dart';
 import '../../widgets/bank_dropdown_field.dart';
@@ -216,10 +216,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 constraints: const BoxConstraints(maxWidth: 480),
                 child: Column(
                   children: [
-                    const FinanceIllustration(
-                      type: FinanceIllustrationType.chart,
-                      size: 76,
-                    ).animate().fadeIn().scale(duration: 450.ms),
+                    const AppLogo(size: 96)
+                        .animate()
+                        .fadeIn()
+                        .scale(duration: 450.ms),
                     const SizedBox(height: 18),
                     Text(
                       'Set up your account',
