@@ -96,6 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (ok) {
+      setState(() => _loading = false);
       widget.onSuccess();
       return;
     }
@@ -122,6 +123,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (ok) {
       await AuthService.instance.unlockSession();
+      if (!mounted) return;
+      setState(() => _loading = false);
       widget.onSuccess();
       return;
     }

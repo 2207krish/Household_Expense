@@ -52,7 +52,15 @@ class _WelcomeAuthScreenState extends State<WelcomeAuthScreen> {
   Future<void> _openSignIn() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => LoginScreen(onSuccess: widget.onSignedIn),
+        builder: (loginContext) => LoginScreen(
+          onSuccess: () {
+            // Pop the pushed unlock screen, then let AuthGate switch to the app.
+            if (loginContext.mounted) {
+              Navigator.of(loginContext).pop();
+            }
+            widget.onSignedIn();
+          },
+        ),
       ),
     );
   }

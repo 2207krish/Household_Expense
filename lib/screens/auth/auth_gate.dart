@@ -77,9 +77,14 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
   Future<void> _onUnlocked() async {
     if (!mounted) return;
-    // Session may already be unlocked (e.g. after forgot PIN flow).
+    // Re-read both flags — profile may exist even when Sign in was opened from Welcome.
+    final hasProfile = await AuthService.instance.hasProfile();
     final loggedIn = await AuthService.instance.isLoggedIn();
-    setState(() => _isLoggedIn = loggedIn);
+    if (!mounted) return;
+    setState(() {
+      _hasProfile = hasProfile;
+      _isLoggedIn = loggedIn;
+    });
   }
 
   @override
