@@ -356,7 +356,7 @@ class _HelpTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: AppColors.card,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: () {
@@ -386,6 +386,7 @@ class _HelpTile extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     Text(
