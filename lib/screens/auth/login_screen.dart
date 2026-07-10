@@ -146,9 +146,13 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final check = await AuthService.instance.checkRegistrationAllowed();
+    final hasProfile = await AuthService.instance.hasProfile();
     if (!mounted) return;
-    if (!check.allowed) {
+
+    // Profile already on device → offer sign-in / forgot, don't open a second account.
+    if (hasProfile) {
+      final check = await AuthService.instance.checkRegistrationAllowed();
+      if (!mounted) return;
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -157,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: const Text('OK'),
             ),
             FilledButton(
               onPressed: () {
@@ -172,6 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // Enrolled / no profile → allow re-create form (same email + phone).
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => RegisterScreen(

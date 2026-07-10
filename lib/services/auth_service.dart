@@ -88,6 +88,14 @@ class AuthService {
     return prefs.containsKey(_profileKey);
   }
 
+  /// True when a PIN/password hash exists (may survive reinstall via Keychain).
+  Future<bool> hasUnlockCredential() async {
+    final pin = await _readSecretHash(AuthLockMethod.pin);
+    if (pin != null && pin.isNotEmpty) return true;
+    final password = await _readSecretHash(AuthLockMethod.password);
+    return password != null && password.isNotEmpty;
+  }
+
   Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_loggedInKey) ?? false;

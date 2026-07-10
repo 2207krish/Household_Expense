@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/ui/app_logo.dart';
 import '../../widgets/ui/mesh_background.dart';
 import 'login_screen.dart';
+import 'register_screen.dart';
 import 'welcome_auth_screen.dart';
 
 class AuthGate extends StatefulWidget {
@@ -87,17 +88,28 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
       return const _AuthSplash();
     }
 
-    if (!_hasProfile) {
-      return WelcomeAuthScreen(
-        onRegistered: () => _refresh(lockSession: false),
+    // Unlocked session with a profile → main app.
+    if (_isLoggedIn && _hasProfile) {
+      return widget.authenticatedBuilder(context);
+    }
+
+    // Unlocked but profile missing (e.g. reinstall kept Keychain PIN) → finish setup.
+    if (_isLoggedIn && !_hasProfile) {
+      return RegisterScreen(
+        onCompleted: () => _refresh(lockSession: false),
       );
     }
 
-    if (!_isLoggedIn) {
+    // Profile exists → unlock with PIN/password.
+    if (_hasProfile) {
       return LoginScreen(onSuccess: _onUnlocked);
     }
 
-    return widget.authenticatedBuilder(context);
+    // No profile yet (first install or wiped prefs) → welcome / re-create / sign in.
+    return WelcomeAuthScreen(
+      onRegistered: () => _refresh(lockSession: false),
+      onSignedIn: _onUnlocked,
+    );
   }
 }
 
