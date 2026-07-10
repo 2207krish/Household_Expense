@@ -1,84 +1,132 @@
 import 'package:flutter/material.dart';
+import 'ui/stagger_animate.dart';
+import 'money_amount.dart';
 
 class SummaryCard extends StatelessWidget {
   final String title;
-  final String value;
+  final String? value;
+  final double? amount;
+  final MoneyFlow? moneyFlow;
   final Color color;
   final IconData icon;
   final String subtitle;
+  final int animationIndex;
 
   const SummaryCard({
     super.key,
     required this.title,
-    required this.value,
+    this.value,
+    this.amount,
+    this.moneyFlow,
     required this.color,
     required this.icon,
     required this.subtitle,
-  });
+    this.animationIndex = 0,
+  }) : assert(
+          value != null || (amount != null && moneyFlow != null),
+          'Provide value or amount with moneyFlow',
+        );
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 170,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: LinearGradient(
-          colors: [
-            color.withValues(alpha: 0.95),
-            color.withValues(alpha: 0.65),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.30),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: LinearGradient(
+            colors: [color, Color.lerp(color, Colors.black, 0.18)!],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.32),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Stack(
           children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.white24,
-              child: Icon(icon, color: Colors.white),
-            ),
-
-            const Spacer(),
-
-            Text(
-              title,
-              style: const TextStyle(color: Colors.white70, fontSize: 15),
-            ),
-
-            const SizedBox(height: 6),
-
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            Positioned(
+              right: -12,
+              top: -12,
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.1),
+                ),
               ),
             ),
-            const SizedBox(height: 6),
-
-            Text(
-              subtitle,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.88),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (amount != null && moneyFlow != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: MoneyAmount(
+                        amount: amount!,
+                        flow: moneyFlow!,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    )
+                  else
+                    Text(
+                      value!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontSize: 11,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
-      ),
-    );
+    ).staggerIn(index: animationIndex);
   }
 }

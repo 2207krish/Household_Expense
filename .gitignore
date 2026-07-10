@@ -33,6 +33,16 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Build outputs (never commit — GitHub 100MB limit)
+**/build/
+*.apk
+*.aab
+*.ipa
+ios/Pods/
+ios/.symlinks/
+macos/Pods/
+**/Flutter/ephemeral/
+
 # Symbolication related
 app.*.symbols
 
@@ -43,3 +53,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/app/build/
+/android/build/
+# AdMob / signing (never commit real values)
+/android/admob.properties
+/android/key.properties
+/android/*.jks
+/android/*.keystore

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/money_format.dart';
 
 Widget buildCategorySummary(Map<String, double> categoryTotals) {
   return Card(
@@ -46,7 +47,7 @@ Widget buildCategorySummary(Map<String, double> categoryTotals) {
                     ),
 
                     trailing: Text(
-                      '₹ ${categoryTotals[category]!.toStringAsFixed(0)}',
+                      formatMoneyWithCurrency(categoryTotals[category]!),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

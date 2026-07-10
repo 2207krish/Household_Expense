@@ -54,9 +54,19 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   Future<void> loadExpenses() async {
     final data = await DatabaseHelper.instance.getAllExpenses();
 
-    setState(() {
-      expenses = data;
-    });
+    print("Total expenses in DB = ${data.length}");
+
+    for (final e in data.take(5)) {
+      print("${e.id} ${e.item} ${e.amount}");
+    }
+
+    expenses = data;
+
+    await calculateSummary();
+
+    if (!mounted) return;
+
+    setState(() {});
   }
 
   Future<void> loadCategories() async {
