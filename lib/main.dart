@@ -165,19 +165,21 @@ class _ExpenseScreenState extends State<ExpenseScreen> with WidgetsBindingObserv
   List<String> get paymentMethods =>
       AppLocaleService.instance.config.paymentMethods;
   final List<Color> barColors = NeoPalette.categoryNeons(12);
-  Future<void> loadExpenses() async {
+  Future<void> loadExpenses({bool notify = true, bool summarize = true}) async {
     final data = await DatabaseHelper.instance.getAllExpenses();
 
     expenses = data;
 
-    await calculateSummary();
+    if (summarize) {
+      await calculateSummary();
+    }
 
-    if (!mounted) return;
+    if (!mounted || !notify) return;
 
     setState(() {});
   }
 
-  Future<void> loadCategories() async {
+  Future<void> loadCategories({bool notify = true}) async {
     await DatabaseHelper.instance.ensureDefaultCategories();
     categories = await DatabaseHelper.instance.getCategories();
     categories.sort();
@@ -186,18 +188,19 @@ class _ExpenseScreenState extends State<ExpenseScreen> with WidgetsBindingObserv
       selectedCategory = categories.first;
     }
 
+    if (!mounted || !notify) return;
     setState(() {});
   }
 
-  Future<void> loadIncomes() async {
+  Future<void> loadIncomes({bool notify = true}) async {
     incomes = await DatabaseHelper.instance.getAllIncome();
 
-    if (mounted) {
+    if (mounted && notify) {
       setState(() {});
     }
   }
 
-  Future<void> loadIncome() async {
+  Future<void> loadIncome({bool notify = true}) async {
     manualIncome = await DatabaseHelper.instance.getCurrentMonthIncome(
       selectedMonth,
     );
@@ -210,7 +213,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with WidgetsBindingObserv
     );
     monthlyIncome = manualIncome + importedIncome + broughtForwardIncome;
 
-    if (mounted) {
+    if (mounted && notify) {
       setState(() {});
     }
   }
@@ -221,13 +224,12 @@ class _ExpenseScreenState extends State<ExpenseScreen> with WidgetsBindingObserv
     }
 
     await Future.wait([
-      loadExpenses(),
-      loadIncomes(),
-      loadMonthlyExpenseTotals(),
+      loadExpenses(notify: false, summarize: false),
+      loadIncomes(notify: false),
     ]);
+    _rebuildMonthlyExpenseTotalsFromMemory();
 
     await Future.wait([
-      loadIncome(),
       loadBudget(),
       loadCategoryBudgets(),
       loadGoals(),
@@ -481,6 +483,11 @@ class _ExpenseScreenState extends State<ExpenseScreen> with WidgetsBindingObserv
     double investments = 0;
     Map<String, double> totals = {};
     Map<String, double> savingsBreakdown = {};
+    final memberTotals = <String, double>{};
+    final memberNames = {
+      for (final m in members)
+        if (m.id != null) m.id!: m.name,
+    };
 
     for (var expense in expenses) {
       final expenseMonth = expense.expenseDate.substring(0, 7);
@@ -498,18 +505,19 @@ class _ExpenseScreenState extends State<ExpenseScreen> with WidgetsBindingObserv
       spendingTotal += expense.amount;
       totals[expense.category] =
           (totals[expense.category] ?? 0) + expense.amount;
+
+      final memberName = memberNames[expense.memberId] ?? 'Unassigned';
+      memberTotals[memberName] = (memberTotals[memberName] ?? 0) + expense.amount;
     }
 
-    manualIncome = await DatabaseHelper.instance.getCurrentMonthIncome(
-      selectedMonth,
-    );
-    importedIncome = await DatabaseHelper.instance.getImportedIncome(
-      selectedMonth,
-    );
-    broughtForwardIncome =
-        await DatabaseHelper.instance.getBalanceBroughtForwardAmount(
-      selectedMonth,
-    );
+    final incomeParts = await Future.wait([
+      DatabaseHelper.instance.getCurrentMonthIncome(selectedMonth),
+      DatabaseHelper.instance.getImportedIncome(selectedMonth),
+      DatabaseHelper.instance.getBalanceBroughtForwardAmount(selectedMonth),
+    ]);
+    manualIncome = incomeParts[0];
+    importedIncome = incomeParts[1];
+    broughtForwardIncome = incomeParts[2];
     monthlyIncome = manualIncome + importedIncome + broughtForwardIncome;
 
     totalExpenses = spendingTotal;
@@ -518,8 +526,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with WidgetsBindingObserv
     savings = investmentTotal;
     balance = monthlyIncome - totalExpenses - investmentTotal;
     categoryTotals = totals;
-    memberSpending =
-        await DatabaseHelper.instance.getMemberSpending(selectedMonth);
+    memberSpending = memberTotals;
 
     for (final goal in goals) {
       if (goal.linkedCategory != null) {
@@ -577,13 +584,28 @@ class _ExpenseScreenState extends State<ExpenseScreen> with WidgetsBindingObserv
     return (totalExpenses / monthlyBudget) * 100;
   }
 
-  Future<void> loadMonthlyExpenseTotals() async {
+  Future<void> loadMonthlyExpenseTotals({bool notify = true}) async {
     monthlyExpenseTotals = await DatabaseHelper.instance
         .getMonthlyExpenseTotals();
 
-    if (mounted) {
+    if (mounted && notify) {
       setState(() {});
     }
+  }
+
+  void _rebuildMonthlyExpenseTotalsFromMemory() {
+    final monthlyTotals = <String, double>{};
+    for (final expense in expenses) {
+      if (expense.expenseDate.length < 7) continue;
+      if (expense.isTransfer) continue;
+      if (CategoryUtils.isSavingsCategory(expense.category)) continue;
+      final month = expense.expenseDate.substring(0, 7);
+      monthlyTotals[month] = (monthlyTotals[month] ?? 0) + expense.amount;
+    }
+    final sortedKeys = monthlyTotals.keys.toList()..sort();
+    monthlyExpenseTotals = {
+      for (final key in sortedKeys) key: monthlyTotals[key]!,
+    };
   }
 
   Future<void> pickDate() async {
@@ -714,29 +736,45 @@ class _ExpenseScreenState extends State<ExpenseScreen> with WidgetsBindingObserv
       await prefs.setBool(resetKey, true);
     }
 
-    await loadCategories();
-    await loadMembersAndAccounts();
-
+    // Load core data without intermediate rebuilds.
     await Future.wait([
-      loadExpenses(),
-      loadIncomes(),
-      loadGoals(),
-      loadMonthlyExpenseTotals(),
+      loadCategories(notify: false),
+      loadMembersAndAccounts(),
     ]);
 
     await Future.wait([
+      loadExpenses(notify: false, summarize: false),
+      loadIncomes(notify: false),
+      loadGoals(),
       loadBudget(),
       loadCategoryBudgets(),
     ]);
+    _rebuildMonthlyExpenseTotalsFromMemory();
 
-    await processRecurringForMonth();
     await calculateSummary();
-    _generateInsights();
-    await loadIncome();
     userProfile = await AuthService.instance.getProfile();
     if (!paymentMethods.contains(selectedPaymentMethod)) {
       selectedPaymentMethod = paymentMethods.first;
     }
+
+    // Show dashboard ASAP; finish non-critical work after first paint.
+    if (mounted) setState(() => _appReady = true);
+
+    unawaited(_finishPostLoginWork());
+  }
+
+  Future<void> _finishPostLoginWork() async {
+    await processRecurringForMonth();
+    if (!mounted) return;
+
+    // Recurring may have inserted rows after first paint — refresh quietly.
+    await Future.wait([
+      loadExpenses(notify: false, summarize: false),
+      loadIncomes(notify: false),
+    ]);
+    _rebuildMonthlyExpenseTotalsFromMemory();
+    await calculateSummary();
+    _generateInsights();
     await _startSmsQuickEntry();
 
     if (!entitlement!.canUseApp && mounted) {
@@ -744,7 +782,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with WidgetsBindingObserv
         _openSubscription(blocking: true);
       });
     }
-    if (mounted) setState(() => _appReady = true);
+    if (mounted) setState(() {});
   }
 
   Future<void> _reloadEntitlement() async {

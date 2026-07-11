@@ -50,8 +50,8 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   }
 
   bool _isBackgroundLifecycleState(AppLifecycleState state) {
+    // Do not lock on `inactive` — notification shade / keyboard can trigger it.
     return state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden;
   }
 
@@ -72,14 +72,11 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _onUnlocked() async {
-    if (!mounted) return;
-    final hasAccount = await AuthService.instance.hasAccount();
-    final loggedIn = await AuthService.instance.isLoggedIn();
+  void _onUnlocked() {
     if (!mounted) return;
     setState(() {
-      _hasAccount = hasAccount;
-      _isLoggedIn = loggedIn;
+      _hasAccount = true;
+      _isLoggedIn = true;
     });
   }
 
